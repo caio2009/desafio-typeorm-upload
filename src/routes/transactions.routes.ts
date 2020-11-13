@@ -8,16 +8,20 @@ import CreateTransactionService from '../services/CreateTransactionService';
 import DeleteTransactionService from '../services/DeleteTransactionService';
 import ImportTransactionsService from '../services/ImportTransactionsService';
 
+import Transaction from '../models/Transaction';
+
 const transactionsRouter = Router();
 const upload = multer(uploadConfig);
 
 transactionsRouter.get('/', async (request, response) => {
   const transactionRepo = getCustomRepository(TransactionsRepository);
 
-  const transactions = await transactionRepo.find({
-    select: ['id', 'title', 'value', 'type', 'created_at', 'updated_at'],
-    relations: ['category'],
-  });
+  // const transactions = await transactionRepo.find({
+  //   select: ['id', 'title', 'value', 'type', 'created_at', 'updated_at'],
+  //   relations: ['category'],
+  // });
+
+  const transactions = await transactionRepo.find();
 
   const balance = await transactionRepo.getBalance();
 
@@ -54,13 +58,31 @@ transactionsRouter.delete('/:id', async (request, response) => {
 
 transactionsRouter.post(
   '/import',
-  upload.single('file'),
+  upload.array('file'),
   async (request, response) => {
     const importTransaction = new ImportTransactionsService();
 
-    const transactions = await importTransaction.execute({
-      filename: request.file.filename,
-    });
+    let transactions: Transaction[] = [];
+
+    // const promises = (request.files as Express.Multer.File[]).map(
+    //   async file => {
+    //     const result = await importTransaction.execute({
+    //       filename: file.filename,
+    //     });
+
+    //     transactions = transactions.concat(result);
+    //   },
+    // );
+
+    // eslint-disable-next-line no-restricted-syntax
+    for (const file of request.files as Express.Multer.File[]) {
+      // eslint-disable-next-line no-await-in-loop
+      const result = await importTransaction.execute({
+        filename: file.filename,
+      });
+
+      transactions = transactions.concat(result);
+    }
 
     return response.json(transactions);
   },
